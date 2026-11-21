@@ -118,6 +118,13 @@ return [
             'client_id' => env('AZAMPAY_CLIENT_ID'),
             'client_secret' => env('AZAMPAY_CLIENT_SECRET'),
             'api_key' => env('AZAMPAY_API_KEY'),
+
+            // Optional extra protection: add ?token=<this value> to the callback URL you give AzamPay.
+            'callback_token' => env('AZAMPAY_CALLBACK_TOKEN'),
+
+            // Leave empty to use AzamPay's standard URLs for the environment above.
+            'auth_url' => env('AZAMPAY_AUTH_URL'),
+            'base_url' => env('AZAMPAY_BASE_URL'),
         ],
 
         'pesapal' => [

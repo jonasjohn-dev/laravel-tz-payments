@@ -31,6 +31,29 @@ class GatewayException extends TzPaymentsException
         return new self($message, $httpStatus, $response);
     }
 
+    /**
+     * The gateway answered with a server error after receiving the request, so it may have been processed.
+     *
+     * @param  array<string, mixed>  $response
+     */
+    public static function ambiguous(string $gateway, int $httpStatus, array $response = []): self
+    {
+        return new self(
+            "The [{$gateway}] gateway failed with HTTP {$httpStatus} after receiving the request. The payment may still complete, so it was left pending.",
+            $httpStatus,
+            $response,
+            outcomeUnknown: true,
+        );
+    }
+
+    /**
+     * The gateway could not be reached before any payment request was sent (for example while getting a token).
+     */
+    public static function unreachable(string $gateway, ?Throwable $previous = null): self
+    {
+        return new self("The [{$gateway}] gateway could not be reached. No payment was started.", previous: $previous);
+    }
+
     public static function timeout(string $gateway, ?Throwable $previous = null): self
     {
         return new self(

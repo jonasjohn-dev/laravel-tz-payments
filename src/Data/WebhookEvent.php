@@ -13,6 +13,8 @@ use JonasJohn\TzPayments\Enums\PaymentStatus;
 final class WebhookEvent
 {
     /**
+     * @param  int|null  $amount  The amount the webhook reports, in the smallest currency unit. When set on a
+     *                            verified event, it must match the stored payment or the webhook is rejected.
      * @param  array<string, mixed>  $raw
      */
     public function __construct(
@@ -21,6 +23,7 @@ final class WebhookEvent
         public readonly ?PaymentStatus $status = null,
         public readonly bool $verified = false,
         public readonly ?string $gatewayStatus = null,
+        public readonly ?int $amount = null,
         public readonly ?string $message = null,
         public readonly array $raw = [],
     ) {}

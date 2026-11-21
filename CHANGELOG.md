@@ -22,3 +22,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Webhook log in `tz_webhook_calls` (processed, ignored, rejected, failed), with secrets redacted and old rows pruned by `model:prune`.
 - `WebhookHandled` event, fired only after a webhook was verified.
 - Static analysis with Larastan (PHPStan level 8) in CI.
+- **AzamPay driver** (mobile money checkout): cached tokens with one retry on 401, provider detected from the phone number or set with `options.provider` (including Azampesa), TZS only up to 5,000,000, sandbox and live URLs (overridable).
+- AzamPay callbacks verified by RSA signature (SHA-256, PKCS#1 v1.5) with the public key cached and re-fetched once on failure, plus an optional secret token in the callback URL. Callbacks with a mismatched amount are rejected.
+- Verified webhooks that report a different amount from the stored payment are rejected.
+- `options` field on charges for gateway-specific settings.
+- `guzzlehttp/guzzle` is now a direct requirement, because Laravel 10 does not install it by default.

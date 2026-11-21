@@ -167,6 +167,10 @@ final class PaymentProcessor
             }
 
             if ($event->verified && $event->status !== null) {
+                if ($event->amount !== null && $event->amount !== $payment->amount) {
+                    throw WebhookException::unauthentic("the amount {$event->amount} does not match the payment amount {$payment->amount}.");
+                }
+
                 $status = $event->status;
                 $gatewayStatus = $event->gatewayStatus;
                 $message = $event->message;

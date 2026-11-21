@@ -2,12 +2,14 @@
 
 namespace JonasJohn\TzPayments;
 
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Manager;
 use Illuminate\Support\Str;
 use JonasJohn\TzPayments\Contracts\Gateway;
 use JonasJohn\TzPayments\Data\PaymentRequest;
 use JonasJohn\TzPayments\Data\PaymentResponse;
+use JonasJohn\TzPayments\Drivers\AzamPayGateway;
 use JonasJohn\TzPayments\Exceptions\WebhookException;
 use JonasJohn\TzPayments\Testing\FakeGateway;
 use Symfony\Component\HttpFoundation\Response;
@@ -91,6 +93,26 @@ class TzPaymentsManager extends Manager
     public function isFaking(): bool
     {
         return $this->fake !== null;
+    }
+
+    protected function createAzampayDriver(): AzamPayGateway
+    {
+        return new AzamPayGateway(
+            $this->gatewayConfig('azampay'),
+            $this->container->make(HttpFactory::class),
+            $this->container->make('cache')->store(),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function gatewayConfig(string $name): array
+    {
+        return array_merge(
+            ['timeout' => (int) $this->config->get('tz-payments.timeout', 30)],
+            (array) $this->config->get("tz-payments.gateways.{$name}", []),
+        );
     }
 
     protected function processor(): PaymentProcessor

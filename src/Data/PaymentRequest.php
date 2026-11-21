@@ -13,10 +13,11 @@ use JonasJohn\TzPayments\Support\Reference;
 final class PaymentRequest
 {
     /**
-     * @param  int  $amount  Whole amount in the currency's main unit (TZS has no decimals in practice).
+     * @param  int  $amount  Whole number in the currency's smallest unit: 5000 TZS, or 1050 USD for $10.50.
      * @param  string  $reference  The developer's own reference, such as an order number.
      * @param  string  $merchantReference  The unique alphanumeric reference sent to the gateway.
-     * @param  array<string, mixed>  $meta
+     * @param  array<string, mixed>  $meta  Your own data, stored with the payment. Never sent to the gateway.
+     * @param  array<string, mixed>  $options  Gateway-specific settings, such as ['provider' => 'Azampesa'] for AzamPay.
      */
     public function __construct(
         public readonly int $amount,
@@ -30,6 +31,7 @@ final class PaymentRequest
         public readonly ?string $customerEmail = null,
         public readonly ?string $callbackUrl = null,
         public readonly array $meta = [],
+        public readonly array $options = [],
     ) {
         if ($amount <= 0) {
             throw InvalidRequestException::invalidAmount();
@@ -72,6 +74,7 @@ final class PaymentRequest
             customerEmail: $data['customer_email'] ?? null,
             callbackUrl: $data['callback_url'] ?? null,
             meta: (array) ($data['meta'] ?? []),
+            options: (array) ($data['options'] ?? []),
         );
     }
 

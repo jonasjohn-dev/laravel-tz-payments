@@ -34,6 +34,21 @@ class InvalidRequestException extends TzPaymentsException
         return new self('The reference must be a non-empty string of at most 100 characters.');
     }
 
+    public static function unsupportedCurrency(string $gateway, string $currency): self
+    {
+        return new self("The [{$gateway}] gateway does not accept the currency [{$currency}].");
+    }
+
+    public static function amountTooHigh(string $gateway, int $max): self
+    {
+        return new self("The [{$gateway}] gateway accepts at most {$max} per payment.");
+    }
+
+    public static function unsupportedOption(string $gateway, string $option, string $value): self
+    {
+        return new self("The [{$gateway}] gateway does not accept [{$value}] for the [{$option}] option.");
+    }
+
     public static function missingField(string $gateway, string $field): self
     {
         return new self("The [{$gateway}] gateway requires the [{$field}] field.");
