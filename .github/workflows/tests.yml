@@ -1,0 +1,56 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Laravel 10 (EOL Feb 2025) and 11 (EOL Mar 2026) are still supported by this
+          # package, but every release of them has security advisories, so Composer 2.9+
+          # refuses to install them unless security blocking is turned off for the run.
+          - { laravel: 10, testbench: 8,  php: '8.1', blocking: '--no-security-blocking' }
+          - { laravel: 10, testbench: 8,  php: '8.3', blocking: '--no-security-blocking' }
+          - { laravel: 11, testbench: 9,  php: '8.2', blocking: '--no-security-blocking' }
+          - { laravel: 11, testbench: 9,  php: '8.4', blocking: '--no-security-blocking' }
+          - { laravel: 12, testbench: 10, php: '8.2', blocking: '' }
+          - { laravel: 12, testbench: 10, php: '8.4', blocking: '' }
+          - { laravel: 13, testbench: 11, php: '8.3', blocking: '' }
+          - { laravel: 13, testbench: 11, php: '8.4', blocking: '' }
+          - { laravel: 13, testbench: 11, php: '8.5', blocking: '' }
+
+    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: json, openssl, pdo_sqlite
+          coverage: none
+
+      - name: Install dependencies
+        run: |
+          composer update --no-interaction --prefer-dist -W ${{ matrix.blocking }} \
+            --with "laravel/framework:^${{ matrix.laravel }}.0" \
+            --with "orchestra/testbench:^${{ matrix.testbench }}.0"
+
+      - name: Run tests
+        run: vendor/bin/pest
+
+  pint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - run: composer update --no-interaction --prefer-dist
+      - run: vendor/bin/pint --test
