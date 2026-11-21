@@ -31,3 +31,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `php artisan tz-payments:pesapal-register-ipn` registers the IPN URL and prints the `PESAPAL_IPN_ID`; `--list` shows registered URLs.
 - Status answers from any gateway are rejected when their reference, amount or currency differ from the stored payment. This blocks a forged notification that points a payment at someone else's paid order.
 - Shared token caching and one retry on 401 for HTTP drivers.
+- **ClickPesa driver**: USSD push (TZS), card payments (USD, via `cardPaymentLink`) and hosted checkout links (TZS or USD), chosen automatically or with `options.channel`. Status lookup maps SUCCESS, SETTLED, PROCESSING, PENDING, ON-HOLD, FAILED, REFUNDED and REVERSED, and a success wins when a reference has several attempts.
+- ClickPesa checksums (HMAC-SHA256 over canonical JSON): requests are signed and webhooks verified when `CLICKPESA_CHECKSUM_KEY` is set; otherwise webhooks are confirmed with the status API. Payout and deposit events are ignored.
+- ClickPesa tokens are cached for 55 minutes because only one may be created every 3 minutes; a rate limit is reported with its retry time.

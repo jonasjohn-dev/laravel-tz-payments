@@ -105,11 +105,18 @@ return [
 
     'gateways' => [
 
+        // ClickPesa has no sandbox: every call is live and moves real money.
+        // Test with small amounts.
         'clickpesa' => [
-            'environment' => env('CLICKPESA_ENV', 'sandbox'),
             'client_id' => env('CLICKPESA_CLIENT_ID'),
             'api_key' => env('CLICKPESA_API_KEY'),
+
+            // Set this when checksums are enabled in your ClickPesa dashboard. Requests are then
+            // signed and webhooks must carry a valid checksum. Without it, every webhook is
+            // confirmed with ClickPesa's status API instead.
             'checksum_key' => env('CLICKPESA_CHECKSUM_KEY'),
+
+            'base_url' => env('CLICKPESA_BASE_URL'),
         ],
 
         'azampay' => [

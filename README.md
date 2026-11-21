@@ -25,7 +25,7 @@ Every Tanzanian gateway has its own authentication, request format, phone number
 | Gateway   | Payment style                          | Webhook verification            | Status     |
 |-----------|----------------------------------------|---------------------------------|------------|
 | AzamPay   | USSD push                              | RSA signature, optional URL token | Built, not yet sandbox-tested |
-| ClickPesa | USSD push, card (USD), hosted checkout | HMAC-SHA256 checksum + status lookup | Planned |
+| ClickPesa | USSD push, card (USD), hosted checkout | HMAC-SHA256 checksum, or status lookup | Built, not yet live-tested |
 | Pesapal   | Hosted checkout (mobile, card, bank)   | Status lookup, checked against the stored payment | Built, not yet sandbox-tested |
 
 ClickPesa has no sandbox: every call moves real money. Payouts (disbursements) are planned for v0.2.
@@ -168,6 +168,48 @@ TzPay::charge(['amount' => 2000, 'phone' => '0754123456', 'options' => ['provide
 ```
 
 AzamPay accepts TZS only, up to TZS 5,000,000 per payment. It has no status lookup for checkouts, so status changes arrive through the signed callback.
+
+### ClickPesa
+
+ClickPesa has **no sandbox**: every call is live and moves real money, so test with small amounts such as TZS 500.
+
+1. Copy your credentials into `.env`:
+
+   ```dotenv
+   CLICKPESA_CLIENT_ID=
+   CLICKPESA_API_KEY=
+   CLICKPESA_CHECKSUM_KEY=   # only if checksums are enabled in your ClickPesa dashboard
+   ```
+
+2. In the ClickPesa dashboard, add an application webhook for **PAYMENT RECEIVED** and **PAYMENT FAILED** pointing to `https://your-app.com/tz-payments/webhooks/clickpesa`.
+
+The package picks how to collect:
+
+| You pass                                             | ClickPesa method          |
+|------------------------------------------------------|---------------------------|
+| TZS and a phone number                               | USSD push to the phone    |
+| No phone, or USD                                     | Hosted checkout page (TZS or USD) |
+| `'options' => ['channel' => 'card']`                 | Card page (USD only; needs `customer_name`, `customer_email` and `phone`) |
+| `'options' => ['channel' => 'checkout']` or `'ussd'` | Force that method         |
+
+```php
+// USSD push: TZS 2,000
+TzPay::charge(['amount' => 2000, 'phone' => '0754123456'], 'clickpesa');
+
+// Card: USD 10.50
+$payment = TzPay::charge([
+    'amount'         => 1050,
+    'currency'       => 'USD',
+    'phone'          => '0754123456',
+    'customer_name'  => 'Asha Juma',
+    'customer_email' => 'asha@example.com',
+    'options'        => ['channel' => 'card'],
+], 'clickpesa');
+
+return redirect()->away($payment->redirectUrl);
+```
+
+With `CLICKPESA_CHECKSUM_KEY` set, requests are signed and webhooks must carry a valid checksum. Without it, every webhook is confirmed with ClickPesa's status API before anything changes. ClickPesa allows only one new access token every 3 minutes, so the package caches it for most of its one-hour life.
 
 ### Pesapal
 

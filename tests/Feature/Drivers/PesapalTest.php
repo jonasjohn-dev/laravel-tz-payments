@@ -252,7 +252,7 @@ it('declares hosted checkout and status lookup', function () {
 // Status
 
 it('maps every Pesapal status code', function (int $code, string $description, PaymentStatus $expected) {
-    $merchantReference = null;
+    $merchantReference = '';
     fakePesapal(function (Request $r) use (&$merchantReference, $code, $description) {
         return Http::response(pesapalStatusBody($merchantReference, $code, $description));
     });
@@ -279,7 +279,7 @@ it('refuses a status answer about a different order', function () {
 });
 
 it('refuses a status answer with a different amount', function () {
-    $merchantReference = null;
+    $merchantReference = '';
     fakePesapal(function () use (&$merchantReference) {
         return Http::response(pesapalStatusBody($merchantReference, 1, 'COMPLETED', amount: 10));
     });
@@ -294,7 +294,7 @@ it('refuses a status answer with a different amount', function () {
 
 it('confirms an IPN with Pesapal and echoes the notification back', function (string $method) {
     Event::fake([PaymentSucceeded::class]);
-    $merchantReference = null;
+    $merchantReference = '';
     fakePesapal(function () use (&$merchantReference) {
         return Http::response(pesapalStatusBody($merchantReference, 1, 'COMPLETED'));
     });
@@ -323,7 +323,7 @@ it('confirms an IPN with Pesapal and echoes the notification back', function (st
 
 it('fires the success event once when Pesapal repeats the IPN', function () {
     Event::fake([PaymentSucceeded::class]);
-    $merchantReference = null;
+    $merchantReference = '';
     fakePesapal(function () use (&$merchantReference) {
         return Http::response(pesapalStatusBody($merchantReference, 1, 'COMPLETED'));
     });
@@ -337,7 +337,7 @@ it('fires the success event once when Pesapal repeats the IPN', function () {
 });
 
 it('keeps the payment pending while Pesapal still reports INVALID', function () {
-    $merchantReference = null;
+    $merchantReference = '';
     fakePesapal(function () use (&$merchantReference) {
         return Http::response(pesapalStatusBody($merchantReference, 0, 'INVALID'));
     });
@@ -349,7 +349,7 @@ it('keeps the payment pending while Pesapal still reports INVALID', function () 
 });
 
 it('looks up the stored tracking id, not the one in the IPN', function () {
-    $merchantReference = null;
+    $merchantReference = '';
     fakePesapal(function () use (&$merchantReference) {
         return Http::response(pesapalStatusBody($merchantReference, 0, 'INVALID'));
     });
