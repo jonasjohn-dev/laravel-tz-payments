@@ -6,6 +6,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Foundation\CachesRoutes;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use JonasJohn\TzPayments\Console\PesapalRegisterIpnCommand;
 use JonasJohn\TzPayments\Support\ModelResolver;
 use JonasJohn\TzPayments\Support\PaymentUpdater;
 
@@ -40,6 +41,8 @@ class TzPaymentsServiceProvider extends ServiceProvider
         $this->registerRoutes();
 
         if ($this->app->runningInConsole()) {
+            $this->commands([PesapalRegisterIpnCommand::class]);
+
             $this->publishes([
                 __DIR__.'/../config/tz-payments.php' => config_path('tz-payments.php'),
             ], 'tz-payments-config');

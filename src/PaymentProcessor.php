@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use JonasJohn\TzPayments\Contracts\Gateway;
 use JonasJohn\TzPayments\Contracts\HandlesWebhooks;
+use JonasJohn\TzPayments\Data\GatewayResponse;
 use JonasJohn\TzPayments\Data\PaymentRequest;
 use JonasJohn\TzPayments\Data\PaymentResponse;
 use JonasJohn\TzPayments\Data\StatusRequest;
@@ -132,6 +133,10 @@ final class PaymentProcessor
 
         $result = $gateway->status(StatusRequest::fromPayment($payment));
 
+        if (($mismatch = $this->mismatch($payment, $result)) !== null) {
+            throw GatewayException::mismatch($payment->gateway, $mismatch);
+        }
+
         $this->updater->apply($payment, $result->status, [
             'gateway_reference' => $result->gatewayReference,
             'gateway_status' => $result->gatewayStatus,
@@ -175,8 +180,18 @@ final class PaymentProcessor
                 $gatewayStatus = $event->gatewayStatus;
                 $message = $event->message;
             } elseif ($gateway->supports(Capability::StatusLookup)) {
-                // Never trust an unverified claim: ask the gateway itself.
-                $result = $gateway->status(StatusRequest::fromPayment($payment));
+                // Never trust an unverified claim: ask the gateway itself, and make
+                // sure the answer is about this payment, not one the sender chose.
+                $result = $gateway->status(new StatusRequest(
+                    $payment->reference,
+                    $payment->merchant_reference,
+                    $payment->gateway_reference ?? $event->gatewayReference,
+                ));
+
+                if (($mismatch = $this->mismatch($payment, $result)) !== null) {
+                    throw WebhookException::unauthentic($mismatch);
+                }
+
                 $status = $result->status;
                 $gatewayStatus = $result->gatewayStatus;
                 $message = $result->message;
@@ -203,6 +218,26 @@ final class PaymentProcessor
 
             throw $e;
         }
+    }
+
+    /**
+     * Why a gateway's answer cannot belong to this payment, or null when it can.
+     */
+    private function mismatch(Payment $payment, GatewayResponse $result): ?string
+    {
+        if ($result->merchantReference !== null && $result->merchantReference !== $payment->merchant_reference) {
+            return "it is for reference [{$result->merchantReference}], not [{$payment->merchant_reference}].";
+        }
+
+        if ($result->amount !== null && $result->amount !== $payment->amount) {
+            return "it reports the amount {$result->amount}, not {$payment->amount}.";
+        }
+
+        if ($result->currency !== null && strcasecmp($result->currency, $payment->currency) !== 0) {
+            return "it reports the currency {$result->currency}, not {$payment->currency}.";
+        }
+
+        return null;
     }
 
     private function logWebhook(string $gatewayName, Request $request): ?WebhookCall

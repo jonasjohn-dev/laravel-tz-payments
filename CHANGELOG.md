@@ -27,3 +27,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Verified webhooks that report a different amount from the stored payment are rejected.
 - `options` field on charges for gateway-specific settings.
 - `guzzlehttp/guzzle` is now a direct requirement, because Laravel 10 does not install it by default.
+- **Pesapal driver** (API 3.0 hosted checkout): order submission with billing details, TZS and other currencies (USD with cents), status lookup mapping INVALID to pending, COMPLETED, FAILED and REVERSED, and IPNs over GET or POST answered in the format Pesapal expects.
+- `php artisan tz-payments:pesapal-register-ipn` registers the IPN URL and prints the `PESAPAL_IPN_ID`; `--list` shows registered URLs.
+- Status answers from any gateway are rejected when their reference, amount or currency differ from the stored payment. This blocks a forged notification that points a payment at someone else's paid order.
+- Shared token caching and one retry on 401 for HTTP drivers.

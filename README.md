@@ -26,7 +26,7 @@ Every Tanzanian gateway has its own authentication, request format, phone number
 |-----------|----------------------------------------|---------------------------------|------------|
 | AzamPay   | USSD push                              | RSA signature, optional URL token | Built, not yet sandbox-tested |
 | ClickPesa | USSD push, card (USD), hosted checkout | HMAC-SHA256 checksum + status lookup | Planned |
-| Pesapal   | Hosted checkout (mobile, card, bank)   | Status lookup                   | Planned    |
+| Pesapal   | Hosted checkout (mobile, card, bank)   | Status lookup, checked against the stored payment | Built, not yet sandbox-tested |
 
 ClickPesa has no sandbox: every call moves real money. Payouts (disbursements) are planned for v0.2.
 
@@ -168,6 +168,43 @@ TzPay::charge(['amount' => 2000, 'phone' => '0754123456', 'options' => ['provide
 ```
 
 AzamPay accepts TZS only, up to TZS 5,000,000 per payment. It has no status lookup for checkouts, so status changes arrive through the signed callback.
+
+### Pesapal
+
+The customer pays on Pesapal's own page, by mobile money, card or bank.
+
+1. Copy your consumer key and secret into `.env`:
+
+   ```dotenv
+   PESAPAL_ENV=sandbox
+   PESAPAL_CONSUMER_KEY=
+   PESAPAL_CONSUMER_SECRET=
+   PESAPAL_CALLBACK_URL=https://your-app.com/payment/return
+   ```
+
+2. Register your notification (IPN) URL once, and put the id it prints in `.env` as `PESAPAL_IPN_ID`:
+
+   ```bash
+   php artisan tz-payments:pesapal-register-ipn
+   php artisan tz-payments:pesapal-register-ipn --list   # see what is registered
+   ```
+
+3. Send the customer to the payment page:
+
+   ```php
+   $payment = TzPay::charge([
+       'amount'         => 2000,
+       'customer_email' => 'buyer@example.com', // a phone, an email, or both
+       'customer_name'  => 'Asha Juma',
+       'description'    => 'Order 1001',
+   ], 'pesapal');
+
+   return redirect()->away($payment->redirectUrl);
+   ```
+
+When the customer comes back to your callback page, show "payment received, confirming…" and rely on the `PaymentSucceeded` event or `TzPay::status()`, never on the return alone. Pesapal's notifications carry no status and no signature, so the package always asks Pesapal for the real status, and accepts the answer only if its reference, amount and currency match the stored payment.
+
+Optional per-payment `options`: `cancellation_url`, `redirect_mode` (`TOP_WINDOW` or `PARENT_WINDOW`) and `branch`.
 
 ## Testing your own app
 

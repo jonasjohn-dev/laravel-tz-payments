@@ -131,7 +131,14 @@ return [
             'environment' => env('PESAPAL_ENV', 'sandbox'),
             'consumer_key' => env('PESAPAL_CONSUMER_KEY'),
             'consumer_secret' => env('PESAPAL_CONSUMER_SECRET'),
+            // Get it with: php artisan tz-payments:pesapal-register-ipn
             'ipn_id' => env('PESAPAL_IPN_ID'),
+
+            // Where Pesapal sends the customer after paying. Can also be set per payment with 'callback_url'.
+            'callback_url' => env('PESAPAL_CALLBACK_URL'),
+
+            // Leave empty to use Pesapal's standard URL for the environment above.
+            'base_url' => env('PESAPAL_BASE_URL'),
         ],
 
     ],

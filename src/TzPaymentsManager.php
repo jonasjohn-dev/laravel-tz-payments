@@ -10,6 +10,7 @@ use JonasJohn\TzPayments\Contracts\Gateway;
 use JonasJohn\TzPayments\Data\PaymentRequest;
 use JonasJohn\TzPayments\Data\PaymentResponse;
 use JonasJohn\TzPayments\Drivers\AzamPayGateway;
+use JonasJohn\TzPayments\Drivers\PesapalGateway;
 use JonasJohn\TzPayments\Exceptions\WebhookException;
 use JonasJohn\TzPayments\Testing\FakeGateway;
 use Symfony\Component\HttpFoundation\Response;
@@ -99,6 +100,15 @@ class TzPaymentsManager extends Manager
     {
         return new AzamPayGateway(
             $this->gatewayConfig('azampay'),
+            $this->container->make(HttpFactory::class),
+            $this->container->make('cache')->store(),
+        );
+    }
+
+    protected function createPesapalDriver(): PesapalGateway
+    {
+        return new PesapalGateway(
+            $this->gatewayConfig('pesapal'),
             $this->container->make(HttpFactory::class),
             $this->container->make('cache')->store(),
         );

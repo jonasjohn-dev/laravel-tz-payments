@@ -7,7 +7,6 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use JonasJohn\TzPayments\Contracts\HandlesWebhooks;
 use JonasJohn\TzPayments\Data\GatewayResponse;
 use JonasJohn\TzPayments\Data\PaymentRequest;
@@ -273,14 +272,13 @@ class AzamPayGateway extends HttpGateway implements HandlesWebhooks
     }
 
     /**
-     * Send an authenticated request. A 401 means the request was refused before
-     * anything happened, so it is safe to get a new token and try once more.
+     * Send an authenticated request, with one retry on 401.
      *
      * @param  Closure(PendingRequest): Response  $send
      */
     protected function authorized(Closure $send, bool $moneyMoves): Response
     {
-        $attempt = function (bool $freshToken) use ($send, $moneyMoves): Response {
+        return $this->retryOnceIfUnauthorized(function (bool $freshToken) use ($send, $moneyMoves): Response {
             $request = $this->request()
                 ->withToken($this->token($freshToken))
                 ->withHeaders(['X-API-Key' => $this->requireConfig('api_key')]);
@@ -288,65 +286,36 @@ class AzamPayGateway extends HttpGateway implements HandlesWebhooks
             return $moneyMoves
                 ? $this->sendPaymentRequest(fn (): Response => $send($request))
                 : $this->sendSafeRequest(fn (): Response => $send($request));
-        };
-
-        $response = $attempt(false);
-
-        return $response->status() === 401 ? $attempt(true) : $response;
+        });
     }
 
     protected function token(bool $refresh = false): string
     {
         $clientId = $this->requireConfig('client_id');
-        $cacheKey = $this->cacheKey('token', $clientId);
 
-        if (! $refresh) {
-            $cached = $this->cache->get($cacheKey);
+        return $this->cachedToken($clientId, $refresh, function () use ($clientId): array {
+            $credentials = [
+                'appName' => $this->requireConfig('app_name'),
+                'clientId' => $clientId,
+                'clientSecret' => $this->requireConfig('client_secret'),
+            ];
 
-            if (is_string($cached) && $cached !== '') {
-                return $cached;
+            $response = $this->sendSafeRequest(
+                fn (): Response => $this->request()->post($this->url('auth', '/AppRegistration/GenerateToken'), $credentials),
+            );
+
+            $body = $this->body($response);
+            $token = $body['data']['accessToken'] ?? null;
+
+            if (! $response->successful() || ! is_string($token) || $token === '') {
+                $reason = $body['message'] ?? 'could not get an access token';
+
+                // The response body is left out on purpose: it is not needed and must never leak.
+                throw GatewayException::requestFailed($this->name(), $response->status(), reason: is_string($reason) ? $reason : null);
             }
-        }
 
-        $credentials = [
-            'appName' => $this->requireConfig('app_name'),
-            'clientId' => $clientId,
-            'clientSecret' => $this->requireConfig('client_secret'),
-        ];
-
-        $response = $this->sendSafeRequest(
-            fn (): Response => $this->request()->post($this->url('auth', '/AppRegistration/GenerateToken'), $credentials),
-        );
-
-        $body = $this->body($response);
-        $token = $body['data']['accessToken'] ?? null;
-
-        if (! $response->successful() || ! is_string($token) || $token === '') {
-            $reason = $body['message'] ?? 'could not get an access token';
-
-            // The response body is left out on purpose: it is not needed and must never leak.
-            throw GatewayException::requestFailed($this->name(), $response->status(), reason: is_string($reason) ? $reason : null);
-        }
-
-        $this->cache->put($cacheKey, $token, $this->tokenLifetime($body['data']['expire'] ?? null));
-
-        return $token;
-    }
-
-    protected function tokenLifetime(mixed $expire): int
-    {
-        if (is_string($expire) && $expire !== '') {
-            try {
-                $seconds = (int) Carbon::now()->diffInSeconds(Carbon::parse($expire), false);
-
-                // Renew a minute early so a token never expires mid-request.
-                return max(60, $seconds - 60);
-            } catch (Throwable) {
-                // Unknown format: fall through to the safe default.
-            }
-        }
-
-        return self::FALLBACK_TOKEN_SECONDS;
+            return [$token, $this->secondsUntil($body['data']['expire'] ?? null, self::FALLBACK_TOKEN_SECONDS)];
+        });
     }
 
     protected function url(string $type, string $path): string

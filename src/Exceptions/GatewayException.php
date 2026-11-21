@@ -54,6 +54,14 @@ class GatewayException extends TzPaymentsException
         return new self("The [{$gateway}] gateway could not be reached. No payment was started.", previous: $previous);
     }
 
+    /**
+     * The gateway's answer belongs to a different payment, or reports a different amount or currency.
+     */
+    public static function mismatch(string $gateway, string $detail): self
+    {
+        return new self("The [{$gateway}] gateway's answer does not match the payment: {$detail} The payment was left unchanged.");
+    }
+
     public static function timeout(string $gateway, ?Throwable $previous = null): self
     {
         return new self(
