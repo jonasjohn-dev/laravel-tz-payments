@@ -6,6 +6,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Foundation\CachesRoutes;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use JonasJohn\TzPayments\Support\ModelResolver;
 use JonasJohn\TzPayments\Support\PaymentUpdater;
 
 class TzPaymentsServiceProvider extends ServiceProvider
@@ -21,12 +22,15 @@ class TzPaymentsServiceProvider extends ServiceProvider
         // cache, so Event::fake() keeps working after the first payment.
         $this->app->bind(PaymentProcessor::class, function (Application $app): PaymentProcessor {
             $events = $app->make('events');
+            $config = $app->make('config');
 
             return new PaymentProcessor(
                 updater: new PaymentUpdater($events),
                 events: $events,
                 cache: $app->make('cache')->store(),
-                model: $app->make('config')->get('tz-payments.database.model'),
+                model: ModelResolver::paymentModel(),
+                logWebhooks: (bool) $config->get('tz-payments.webhooks.log', true),
+                redact: array_values(array_filter((array) $config->get('tz-payments.webhooks.redact', []), 'is_string')),
             );
         });
     }

@@ -17,12 +17,14 @@ use JonasJohn\TzPayments\Data\WebhookEvent;
 use JonasJohn\TzPayments\Enums\Capability;
 use JonasJohn\TzPayments\Enums\PaymentStatus;
 use JonasJohn\TzPayments\Events\PaymentInitiated;
+use JonasJohn\TzPayments\Events\WebhookHandled;
 use JonasJohn\TzPayments\Exceptions\DuplicatePaymentException;
 use JonasJohn\TzPayments\Exceptions\GatewayException;
 use JonasJohn\TzPayments\Exceptions\PaymentNotFoundException;
 use JonasJohn\TzPayments\Exceptions\UnsupportedOperationException;
 use JonasJohn\TzPayments\Exceptions\WebhookException;
 use JonasJohn\TzPayments\Models\Payment;
+use JonasJohn\TzPayments\Models\WebhookCall;
 use JonasJohn\TzPayments\Support\PaymentUpdater;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -33,6 +35,7 @@ final class PaymentProcessor
 {
     /**
      * @param  class-string<Payment>  $model
+     * @param  list<string>  $redact  Payload keys hidden before a webhook is logged.
      */
     public function __construct(
         private readonly PaymentUpdater $updater,
@@ -40,6 +43,8 @@ final class PaymentProcessor
         private readonly Cache $cache,
         private readonly string $model = Payment::class,
         private readonly int $lockSeconds = 60,
+        private readonly bool $logWebhooks = true,
+        private readonly array $redact = [],
     ) {}
 
     public function charge(string $gatewayName, Gateway $gateway, PaymentRequest $request): PaymentResponse
@@ -83,6 +88,7 @@ final class PaymentProcessor
 
             $payment->forceFill(array_filter([
                 'gateway_reference' => $result->gatewayReference,
+                'gateway_status' => $result->gatewayStatus,
                 'redirect_url' => $result->redirectUrl,
                 'message' => $result->message,
             ], fn ($value) => $value !== null))->save();
@@ -128,6 +134,7 @@ final class PaymentProcessor
 
         $this->updater->apply($payment, $result->status, [
             'gateway_reference' => $result->gatewayReference,
+            'gateway_status' => $result->gatewayStatus,
             'message' => $result->message,
         ]);
 
@@ -135,6 +142,8 @@ final class PaymentProcessor
     }
 
     /**
+     * Every webhook is logged, verified, then applied once.
+     *
      * @throws WebhookException
      * @throws GatewayException When the status lookup fails; the gateway should retry the webhook.
      */
@@ -144,32 +153,93 @@ final class PaymentProcessor
             throw WebhookException::unknownGateway($gatewayName);
         }
 
-        $event = $gateway->parseWebhook($request);
-        $payment = $this->findForWebhook($gatewayName, $event);
+        $call = $this->logWebhook($gatewayName, $request);
 
-        // Unknown payment: acknowledge so the gateway stops retrying, change nothing.
-        if ($payment === null) {
+        try {
+            $event = $gateway->parseWebhook($request);
+            $payment = $this->findForWebhook($gatewayName, $event);
+
+            // Unknown payment: acknowledge so the gateway stops retrying, change nothing.
+            if ($payment === null) {
+                $this->finishLog($call, WebhookCall::STATUS_IGNORED, 'No matching payment.');
+
+                return $gateway->acknowledgeWebhook($event);
+            }
+
+            if ($event->verified && $event->status !== null) {
+                $status = $event->status;
+                $gatewayStatus = $event->gatewayStatus;
+                $message = $event->message;
+            } elseif ($gateway->supports(Capability::StatusLookup)) {
+                // Never trust an unverified claim: ask the gateway itself.
+                $result = $gateway->status(StatusRequest::fromPayment($payment));
+                $status = $result->status;
+                $gatewayStatus = $result->gatewayStatus;
+                $message = $result->message;
+            } else {
+                throw WebhookException::unverifiable($gatewayName);
+            }
+
+            $this->updater->apply($payment, $status, [
+                'gateway_reference' => $event->gatewayReference,
+                'gateway_status' => $gatewayStatus,
+                'message' => $message,
+            ]);
+
+            $this->finishLog($call, WebhookCall::STATUS_PROCESSED, null, $payment);
+            $this->events->dispatch(new WebhookHandled($gatewayName, $payment, $event));
+
             return $gateway->acknowledgeWebhook($event);
+        } catch (WebhookException $e) {
+            $this->finishLog($call, WebhookCall::STATUS_REJECTED, $e->getMessage());
+
+            throw $e;
+        } catch (GatewayException $e) {
+            $this->finishLog($call, WebhookCall::STATUS_FAILED, $e->getMessage());
+
+            throw $e;
+        }
+    }
+
+    private function logWebhook(string $gatewayName, Request $request): ?WebhookCall
+    {
+        if (! $this->logWebhooks) {
+            return null;
         }
 
-        if ($event->verified && $event->status !== null) {
-            $status = $event->status;
-            $message = $event->message;
-        } elseif ($gateway->supports(Capability::StatusLookup)) {
-            // Never trust an unverified claim: ask the gateway itself.
-            $result = $gateway->status(StatusRequest::fromPayment($payment));
-            $status = $result->status;
-            $message = $result->message;
-        } else {
-            throw WebhookException::unverifiable($gatewayName);
-        }
-
-        $this->updater->apply($payment, $status, [
-            'gateway_reference' => $event->gatewayReference,
-            'message' => $message,
+        return WebhookCall::query()->create([
+            'gateway' => $gatewayName,
+            'status' => WebhookCall::STATUS_RECEIVED,
+            'payload' => $this->redact($request->all()),
         ]);
+    }
 
-        return $gateway->acknowledgeWebhook($event);
+    private function finishLog(?WebhookCall $call, string $status, ?string $message = null, ?Payment $payment = null): void
+    {
+        $call?->forceFill([
+            'status' => $status,
+            'message' => $message,
+            'payment_id' => $payment?->getKey(),
+        ])->save();
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $payload
+     * @return array<array-key, mixed>
+     */
+    private function redact(array $payload): array
+    {
+        $hidden = array_map('strtolower', $this->redact);
+
+        foreach ($payload as $key => $value) {
+            if (in_array(strtolower((string) $key), $hidden, true)) {
+                $payload[$key] = '[redacted]';
+            } elseif (is_array($value)) {
+                $payload[$key] = $this->redact($value);
+            }
+        }
+
+        return $payload;
     }
 
     private function findForWebhook(string $gatewayName, WebhookEvent $event): ?Payment

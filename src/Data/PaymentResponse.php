@@ -20,6 +20,7 @@ final class PaymentResponse
         public readonly int $amount,
         public readonly string $currency,
         public readonly ?string $gatewayReference = null,
+        public readonly ?string $gatewayStatus = null,
         public readonly ?string $redirectUrl = null,
         public readonly ?string $message = null,
         public readonly array $raw = [],

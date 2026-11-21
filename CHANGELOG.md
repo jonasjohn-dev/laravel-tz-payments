@@ -17,3 +17,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Events `PaymentInitiated`, `PaymentSucceeded`, `PaymentFailed`, `PaymentReversed` and `PaymentStatusChanged`.
 - Tanzanian phone normalisation and operator detection; gateway-safe 20-character references.
 - `TzPay::fake()` with `assertCharged`, `assertNotCharged`, `assertNothingCharged` and `assertChargedTimes`.
+- Amounts in the smallest unit of each currency (5000 TZS, 1050 USD = $10.50) with `Currency` conversion to gateway formats; decimals configurable.
+- The gateway's raw status (such as `SETTLED`) is stored in `gateway_status` next to the normalised status.
+- Webhook log in `tz_webhook_calls` (processed, ignored, rejected, failed), with secrets redacted and old rows pruned by `model:prune`.
+- `WebhookHandled` event, fired only after a webhook was verified.
+- Static analysis with Larastan (PHPStan level 8) in CI.

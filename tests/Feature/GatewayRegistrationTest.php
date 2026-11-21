@@ -1,8 +1,10 @@
 <?php
 
 use JonasJohn\TzPayments\Events\PaymentSucceeded;
+use JonasJohn\TzPayments\Exceptions\TzPaymentsException;
 use JonasJohn\TzPayments\Facades\TzPay;
 use JonasJohn\TzPayments\Models\Payment;
+use JonasJohn\TzPayments\Support\ModelResolver;
 use JonasJohn\TzPayments\Testing\FakeGateway;
 
 it('registers a custom gateway with extend()', function () {
@@ -32,3 +34,9 @@ it('keeps queued events serialisable', function () {
 
     expect($event->payment->amount)->toBe(1000);
 });
+
+it('explains a misconfigured payment model clearly', function () {
+    config(['tz-payments.database.model' => stdClass::class]);
+
+    ModelResolver::paymentModel();
+})->throws(TzPaymentsException::class, 'must be');

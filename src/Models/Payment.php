@@ -15,6 +15,7 @@ use JonasJohn\TzPayments\Enums\PaymentStatus;
  * @property string $merchant_reference
  * @property string|null $gateway_reference
  * @property PaymentStatus $status
+ * @property string|null $gateway_status
  * @property int $amount
  * @property string $currency
  * @property string|null $phone
@@ -37,6 +38,7 @@ class Payment extends Model
         'merchant_reference',
         'gateway_reference',
         'status',
+        'gateway_status',
         'amount',
         'currency',
         'phone',
@@ -90,6 +92,7 @@ class Payment extends Model
             amount: $this->amount,
             currency: $this->currency,
             gatewayReference: $this->gateway_reference,
+            gatewayStatus: $this->gateway_status,
             redirectUrl: $this->redirect_url,
             message: $message ?? $this->message,
             raw: $raw,

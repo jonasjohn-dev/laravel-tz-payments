@@ -24,7 +24,8 @@ final class PaymentUpdater
 
     /**
      * @param  array<string, mixed>  $attributes  Extra columns to store, such as gateway_reference or message.
-     *                                            Without a status change, only empty columns are filled.
+     *                                            Without a status change, only empty columns are filled,
+     *                                            except gateway_status, which always holds the latest value.
      * @return bool Whether the status changed.
      */
     public function apply(Payment $payment, PaymentStatus $status, array $attributes = []): bool
@@ -38,7 +39,9 @@ final class PaymentUpdater
             $changed = $previous->canTransitionTo($status);
 
             foreach ($attributes as $key => $value) {
-                if ($value !== null && ($changed || $locked->getAttribute($key) === null)) {
+                $alwaysUpdate = $key === 'gateway_status';
+
+                if ($value !== null && ($changed || $alwaysUpdate || $locked->getAttribute($key) === null)) {
                     $locked->setAttribute($key, $value);
                 }
             }

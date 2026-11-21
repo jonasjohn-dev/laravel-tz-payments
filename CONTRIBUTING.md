@@ -16,6 +16,7 @@ composer test
 - **Add tests.** A change without tests will not be merged.
 - **Run the tests:** `composer test`
 - **Fix code style:** `composer format` (Laravel Pint)
+- **Run static analysis:** `composer analyse` (PHPStan level 8, must report no errors)
 - **Update [CHANGELOG.md](CHANGELOG.md)** under "Unreleased".
 - **One pull request per feature or fix.**
 - **Never commit real credentials**, including sandbox keys.

@@ -20,6 +20,7 @@ final class WebhookEvent
         public readonly ?string $gatewayReference = null,
         public readonly ?PaymentStatus $status = null,
         public readonly bool $verified = false,
+        public readonly ?string $gatewayStatus = null,
         public readonly ?string $message = null,
         public readonly array $raw = [],
     ) {}

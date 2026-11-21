@@ -22,7 +22,7 @@ use Throwable;
  * A gateway for tests. It records charges, lets the test decide every outcome,
  * and never makes a network call.
  *
- * Its webhooks accept JSON like {"merchant_reference": "...", "status": "succeeded"}.
+ * Its webhooks accept JSON like {"merchant_reference": "...", "status": "succeeded", "gateway_status": "SETTLED"}.
  */
 class FakeGateway implements Gateway, HandlesWebhooks
 {
@@ -93,6 +93,7 @@ class FakeGateway implements Gateway, HandlesWebhooks
             merchantReference: $reference,
             status: PaymentStatus::tryFrom((string) $request->input('status')),
             verified: $this->verifiesWebhooks,
+            gatewayStatus: $request->input('gateway_status'),
             raw: $request->all(),
         );
     }

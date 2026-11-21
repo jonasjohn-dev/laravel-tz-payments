@@ -16,6 +16,7 @@ return new class extends Migration
                 $table->string('merchant_reference', 64)->unique();
                 $table->string('gateway_reference')->nullable();
                 $table->string('status', 20)->default('pending')->index();
+                $table->string('gateway_status', 50)->nullable();
                 $table->unsignedBigInteger('amount');
                 $table->char('currency', 3);
                 $table->string('phone', 20)->nullable();
@@ -31,10 +32,26 @@ return new class extends Migration
 
                 $table->index(['gateway', 'gateway_reference']);
             });
+
+        Schema::connection(config('tz-payments.database.connection'))
+            ->create(config('tz-payments.database.webhook_calls_table', 'tz_webhook_calls'), function (Blueprint $table) {
+                $table->id();
+                $table->string('gateway', 50);
+                $table->unsignedBigInteger('payment_id')->nullable()->index();
+                $table->string('status', 20)->index();
+                $table->json('payload')->nullable();
+                $table->text('message')->nullable();
+                $table->timestamps();
+
+                $table->index('created_at');
+            });
     }
 
     public function down(): void
     {
+        Schema::connection(config('tz-payments.database.connection'))
+            ->dropIfExists(config('tz-payments.database.webhook_calls_table', 'tz_webhook_calls'));
+
         Schema::connection(config('tz-payments.database.connection'))
             ->dropIfExists(config('tz-payments.database.table', 'tz_payments'));
     }

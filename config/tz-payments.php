@@ -26,6 +26,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Currency decimals
+    |--------------------------------------------------------------------------
+    |
+    | Amounts are always whole numbers in the smallest unit in practical use:
+    | 5000 TZS is five thousand shillings, 1050 USD is $10.50. Other currencies
+    | default to 2 decimals.
+    |
+    */
+
+    'currencies' => [
+        'TZS' => 0,
+        'USD' => 2,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | HTTP timeout
     |--------------------------------------------------------------------------
     |
@@ -49,6 +65,7 @@ return [
     'database' => [
         'connection' => env('TZ_PAYMENTS_DB_CONNECTION'),
         'table' => 'tz_payments',
+        'webhook_calls_table' => 'tz_webhook_calls',
         'model' => Payment::class,
     ],
 
@@ -66,6 +83,14 @@ return [
         'enabled' => true,
         'prefix' => 'tz-payments/webhooks',
         'middleware' => [],
+
+        // Keep a log of every webhook in the webhook_calls_table. Prune old rows with:
+        // Schedule::command('model:prune', ['--model' => [JonasJohn\TzPayments\Models\WebhookCall::class]])->daily();
+        'log' => true,
+        'log_retention_days' => 30,
+
+        // Payload keys replaced with "[redacted]" before logging, at any depth.
+        'redact' => ['password', 'user', 'secret', 'token', 'api_key', 'apiKey'],
     ],
 
     /*
